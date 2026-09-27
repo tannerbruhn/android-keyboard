@@ -1,0 +1,64 @@
+# Fork addition: build a signed APK on every tag and publish it as a GitHub Release (for Obtainium).
+name: Release APK
+
+on:
+  push:
+    tags: ['*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+          lfs: true
+
+      - name: Pull LFS files in submodules
+        run: git submodule foreach --recursive 'git lfs pull || true'
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install NDK
+        run: sdkmanager --install "ndk;28.2.13676358" "cmake;3.22.1"
+
+      - name: Set up signing
+        env:
+          KEYSTORE_FILE: ${{ secrets.KEYSTORE_FILE }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          KEYSTORE_ALIAS: ${{ secrets.KEYSTORE_ALIAS }}
+        run: |
+          echo "$KEYSTORE_FILE" | base64 --decode > key.jks
+          echo "storePassword=$KEYSTORE_PASSWORD" > keystore.properties
+          echo "keyPassword=$KEY_PASSWORD" >> keystore.properties
+          echo "keyAlias=$KEYSTORE_ALIAS" >> keystore.properties
+          echo "storeFile=key.jks" >> keystore.properties
+
+      - name: Build
+        env:
+          VERSION_NAME: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+        run: ./gradlew assembleUnstableRelease -s
+
+      - name: Rename APK
+        run: mv build/outputs/apk/unstable/release/latinime-unstable-release.apk futo-keyboard-voicekeep-${{ github.ref_name }}.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: apk
+          path: '*.apk'
+
+      - uses: softprops/action-gh-release@v2
+        if: github.ref_type == 'tag'
+        with:
+          files: '*.apk'

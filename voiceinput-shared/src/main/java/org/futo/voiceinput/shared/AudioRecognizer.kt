@@ -1,6 +1,7 @@
 package org.futo.voiceinput.shared
 
 import android.Manifest
+import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -14,6 +15,8 @@ import android.media.MediaRecorder
 import android.media.MicrophoneDirection
 import android.net.Uri
 import android.os.Build
+import android.os.Environment
+import android.provider.MediaStore
 import android.provider.Settings
 import android.util.Log
 import androidx.lifecycle.LifecycleCoroutineScope
@@ -43,8 +46,13 @@ import org.futo.voiceinput.shared.whisper.ModelManager
 import org.futo.voiceinput.shared.whisper.MultiModelRunConfiguration
 import org.futo.voiceinput.shared.whisper.MultiModelRunner
 import org.futo.voiceinput.shared.whisper.isBlankResult
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import java.nio.FloatBuffer
 import java.nio.ShortBuffer
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import kotlin.math.min
 import kotlin.math.pow
 import kotlin.math.sqrt
@@ -549,6 +557,7 @@ class AudioRecognizer(
         }
 
         val floatArray = floatSamples.array().sliceArray(0 until floatSamples.position())
+        saveRecording(floatArray)
 
         yield()
         val outputText = try {
@@ -574,6 +583,31 @@ class AudioRecognizer(
                 yield()
                 listener.finished(text)
             }
+        }
+    }
+
+    // Fork addition: keep every voice-input recording as a 16 kHz mono WAV in Recordings/FUTO Voice
+    private fun saveRecording(samples: FloatArray) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || samples.isEmpty()) return
+        try {
+            val wav = ByteBuffer.allocate(44 + samples.size * 2).order(ByteOrder.LITTLE_ENDIAN)
+            wav.put("RIFF".toByteArray()).putInt(36 + samples.size * 2).put("WAVE".toByteArray())
+            wav.put("fmt ".toByteArray()).putInt(16).putShort(1).putShort(1)
+                .putInt(16000).putInt(16000 * 2).putShort(2).putShort(16)
+            wav.put("data".toByteArray()).putInt(samples.size * 2)
+            samples.forEach { wav.putShort((it.coerceIn(-1f, 1f) * Short.MAX_VALUE).toInt().toShort()) }
+
+            val name = SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.US).format(Date())
+            val values = ContentValues().apply {
+                put(MediaStore.Audio.Media.DISPLAY_NAME, "voice_$name.wav")
+                put(MediaStore.Audio.Media.MIME_TYPE, "audio/x-wav")
+                put(MediaStore.Audio.Media.RELATIVE_PATH, Environment.DIRECTORY_RECORDINGS + "/FUTO Voice")
+            }
+            val resolver = context.contentResolver
+            val uri = resolver.insert(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, values) ?: return
+            resolver.openOutputStream(uri)?.use { it.write(wav.array()) }
+        } catch (e: Exception) {
+            Log.e("AudioRecognizer", "Failed to save recording", e)
         }
     }
 

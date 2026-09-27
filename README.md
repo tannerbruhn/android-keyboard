@@ -1,3 +1,9 @@
+> **Modified fork.** This is a personal, non-commercial fork of FUTO Keyboard. The only change is that
+> every voice-input recording is also saved as a WAV file to `Recordings/FUTO Voice` on the phone
+> (see `saveRecording` in `voiceinput-shared/.../AudioRecognizer.kt`), plus a GitHub Actions workflow
+> that publishes signed APKs as releases for Obtainium. It builds the `unstable` flavor, so it installs
+> as "FUTO Keyboard [Dev Build]" alongside the official app. Not affiliated with or endorsed by FUTO.
+
 # FUTO Keyboard
 
 The goal is to make a good modern keyboard that stays offline and doesn't spy on you. This keyboard is a fork of [LatinIME, The Android Open-Source Keyboard](https://android.googlesource.com/platform/packages/inputmethods/LatinIME), with significant changes made to it.
