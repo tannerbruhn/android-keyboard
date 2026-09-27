@@ -13,7 +13,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
           submodules: recursive
@@ -22,15 +22,16 @@ jobs:
       - name: Pull LFS files in submodules
         run: git submodule foreach --recursive 'git lfs pull || true'
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 17
 
-      - uses: android-actions/setup-android@v3
-
       - name: Install NDK
-        run: sdkmanager --install "ndk;28.2.13676358" "cmake;3.22.1"
+        run: |
+          SDKMANAGER=$(ls -d "$ANDROID_HOME"/cmdline-tools/*/bin/sdkmanager | sort -V | tail -1)
+          yes | "$SDKMANAGER" --licenses > /dev/null
+          "$SDKMANAGER" --install "ndk;28.2.13676358" "cmake;3.22.1"
 
       - name: Set up signing
         env:
