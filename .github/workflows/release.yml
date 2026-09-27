@@ -54,7 +54,7 @@ jobs:
           ./gradlew assembleUnstableRelease -s
 
       - name: Rename APK
-        run: mv build/outputs/apk/unstable/release/latinime-unstable-release.apk futo-keyboard-voicekeep-${{ github.ref_name }}.apk
+        run: mv build/outputs/apk/unstable/release/*.apk futo-keyboard-voicekeep-${{ github.ref_name }}.apk
 
       - uses: actions/upload-artifact@v4
         with:
